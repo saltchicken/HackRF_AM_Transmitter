@@ -1,43 +1,32 @@
 import numpy as np
-import hackrf
+import SoapySDR
+from SoapySDR import * #SOAPY_SDR_ constants
 
 fs = 8000000
 fc = 10000000
-# Message signal frequency
 fm = 1000
-
-# Time interval
 T = 1/fm
-
-# Number of samples
 N = T*fs
-
-# Sampling interval
 ts = 1/fs
-
-# Time vector
 t = np.linspace(0, T, N, endpoint=False)
-
-# Message signal
 m = np.sin(2*np.pi*fm*t)
-
-# Carrier signal
 c = np.sin(2*np.pi*fc*t)
-
-# Amplitude modulation
 y = np.multiply(m, c)
-
-# Normalize the signal
 y = y/np.max(y)
 
 # Convert the signal to a signed 8-bit integer
 y = (y * 128) + 128
 y = y.astype(np.int8)
 
-hackrf = hackrf.HackRF()
-hackrf.sample_rate = fs
-hackrf.center_freq = fc
-hackrf.txvga_gain = 40
-hackrf.transmit(y)
-
-hackrf.close()
+# Create an instance of the SoapySDRDevice
+sdr = SoapySDR.Device()
+sdr.open(dict(driver="hackrf"))
+sdr.setSampleRate(SOAPY_SDR_TX, 0, fs)
+sdr.setFrequency(SOAPY_SDR_TX, 0, fc)
+sdr.setGain(SOAPY_SDR_TX, 0, 40)
+txStream = sdr.setupStream(SOAPY_SDR_TX, "CF32")
+sdr.activateStream(txStream)
+sdr.writeStream(txStream, [y], len(y))
+sdr.deactivateStream(txStream)
+sdr.closeStream(txStream)
+sdr.close()
