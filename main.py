@@ -1,32 +1,30 @@
 import numpy as np
 import SoapySDR
-from SoapySDR import * #SOAPY_SDR_ constants
+from SoapySDR import SOAPY_SDR_TX
 
-fs = 8000000
-fc = 10000000
-fm = 1000
-T = 1/fm
-N = T*fs
-ts = 1/fs
-t = np.linspace(0, T, N, endpoint=False)
-m = np.sin(2*np.pi*fm*t)
-c = np.sin(2*np.pi*fc*t)
-y = np.multiply(m, c)
-y = y/np.max(y)
+sample_rate = 8000000
+carrier_freq = 10000000
+mod_freq = 1000
+mod_period = 1 / mod_freq
+sample_count = int(mod_period * sample_rate)
+time_step = 1 / sample_rate
+
+time_samples = np.linspace(0, mod_period, sample_count, endpoint=False)
+mod_signal = np.sin(2 * np.pi * mod_freq * time_samples)
+carrier_signal = np.sin(2 * np.pi * carrier_freq * time_samples)
+transmit_signal = np.multiply(mod_signal, carrier_signal)
+transmit_signal /= np.max(transmit_signal)
 
 # Convert the signal to a signed 8-bit integer
-y = (y * 128) + 128
-y = y.astype(np.int8)
+transmit_signal = ((transmit_signal * 128) + 128).astype(np.int8)
 
-# Create an instance of the SoapySDRDevice
-sdr = SoapySDR.Device()
-sdr.open(dict(driver="hackrf"))
-sdr.setSampleRate(SOAPY_SDR_TX, 0, fs)
-sdr.setFrequency(SOAPY_SDR_TX, 0, fc)
-sdr.setGain(SOAPY_SDR_TX, 0, 40)
-txStream = sdr.setupStream(SOAPY_SDR_TX, "CF32")
-sdr.activateStream(txStream)
-sdr.writeStream(txStream, [y], len(y))
-sdr.deactivateStream(txStream)
-sdr.closeStream(txStream)
-sdr.close()
+sdr_device = SoapySDR.Device({"driver": "hackrf"})
+sdr_device.setSampleRate(SOAPY_SDR_TX, 0, sample_rate)
+sdr_device.setFrequency(SOAPY_SDR_TX, 0, carrier_freq)
+sdr_device.setGain(SOAPY_SDR_TX, 0, 40)
+tx_stream = sdr_device.setupStream(SOAPY_SDR_TX, "CF32")
+sdr_device.activateStream(tx_stream)
+sdr_device.writeStream(tx_stream, [transmit_signal], len(transmit_signal))
+sdr_device.deactivateStream(tx_stream)
+sdr_device.closeStream(tx_stream)
+sdr_device.close()
